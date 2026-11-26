@@ -33,6 +33,9 @@ dialog{border:0;border-radius:18px;padding:0;width:min(500px,calc(100% - 24px));
 .note{background:#eff6ff;border:1px solid #dbeafe;color:#23456e;padding:12px;border-radius:12px;font-size:13px;margin-bottom:15px}
 footer{text-align:center;color:var(--muted);font-size:12px;padding:10px}
 @media(max-width:650px){main{margin:14px auto}.stats{gap:8px}.stat{padding:12px}.stat strong{font-size:20px}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.panel{padding:13px}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}header{padding:15px 16px}.hide-mobile{display:none}}
+
+#inventoryRows{min-width:0}.itemgroup{margin:14px 0 20px;min-width:0}.itemheading{font-size:18px;font-weight:800;overflow-wrap:anywhere;margin:0 0 10px}.batchgroup{border:1px solid #dbe3ed;border-radius:12px;overflow:hidden;margin-bottom:12px}.batchheading{background:#172338;color:white;padding:10px 12px;font-weight:750;overflow-wrap:anywhere}.batchgroup table{min-width:0;width:100%;table-layout:fixed}.batchgroup th,.batchgroup td{padding:9px 7px;overflow-wrap:anywhere}.batchgroup th:first-child{width:auto}.batchgroup th:nth-child(2){width:34%}.batchgroup th:last-child{width:76px}.batchgroup .rowactions{gap:4px}.batchgroup .rowactions button{padding:7px 6px;font-size:12px}.batchtotal,.itemtotal{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;font-weight:750;background:#eff6ff}.batchtotal strong{color:var(--green);font-size:20px;overflow-wrap:anywhere}.itemtotal{background:#e8edf4;border-radius:9px}.itemtotal strong{font-size:20px;overflow-wrap:anywhere}.batchgroup .num{font-variant-numeric:tabular-nums}.batchgroup td{border-bottom:1px solid var(--line)}
+@media(max-width:650px){main{padding-left:8px;padding-right:8px}.panel{padding:10px}.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat{min-width:0;padding:8px;overflow-wrap:anywhere}.toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.toolbar select{min-width:0;padding:9px 5px;font-size:13px}.batchgroup th,.batchgroup td{padding:8px 5px}.batchgroup th:last-child{width:68px}.batchgroup .rowactions button{padding:7px 5px}.batchgroup th:nth-child(2){width:35%}header{flex-wrap:wrap}.panelhead{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -52,9 +55,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:10px}
   <select id="sort"><option value="batch">Sort: Batch A–Z</option><option value="item">Sort: Item A–Z</option><option value="amountDesc">Sort: Amount high–low</option><option value="amountAsc">Sort: Amount low–high</option><option value="recent">Sort: Recently added</option></select>
   <select id="batchFilter"><option value="">All batches</option></select>
  </div>
- <div class="tablewrap" style="margin-top:12px">
- <table><thead><tr><th>Item</th><th>Batch</th><th>Package</th><th class="num">Amount</th><th class="num"> </th></tr></thead><tbody id="inventoryRows"></tbody></table>
- </div>
+ <div id="inventoryRows" style="margin-top:12px"></div>
  <div class="totalbar"><span>Filtered total</span><strong id="filteredTotal">0</strong></div>
  <div class="muted" id="resultCount" style="text-align:right;margin-top:4px"></div>
 </section>
@@ -90,6 +91,18 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function record(action,e,oldAmount=null){db.history.unshift({id:uid(),date:new Date().toISOString(),action,item:e.item,batch:e.batch,package:e.package,amount:e.amount,oldAmount});}
 function total(arr){return arr.reduce((n,e)=>n+(Number(e.amount)||0),0)}
+function groupedInventory(filtered,entryCount){
+ if(!filtered.length)return `<div class="empty">${entryCount?'No matching packages.':'No stock yet. Add your first package.'}</div>`;
+ const items=new Map();
+ for(const e of filtered){
+  if(!items.has(e.item))items.set(e.item,new Map());
+  const batches=items.get(e.item);
+  if(!batches.has(e.batch))batches.set(e.batch,[]);
+  batches.get(e.batch).push(e);
+ }
+ const fmt=n=>Number(n).toLocaleString();
+ return [...items].map(([item,batches])=>`<section class="itemgroup"><h3 class="itemheading">Item: ${esc(item)}</h3>${[...batches].map(([batch,rows])=>`<section class="batchgroup"><div class="batchheading">Batch: ${esc(batch)}</div><table><thead><tr><th>Package</th><th class="num">Quantity</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.package)}</td><td class="num amount">${fmt(e.amount)}</td><td><div class="rowactions"><button class="secondary small" data-edit="${esc(e.id)}" aria-label="Edit package">Edit</button><button class="danger small" data-delete="${esc(e.id)}" aria-label="Delete package">×</button></div></td></tr>`).join('')}</tbody></table><div class="batchtotal"><span>Batch total</span><strong>${fmt(total(rows))}</strong></div></section>`).join('')}<div class="itemtotal"><span>Item total${document.getElementById('batchFilter').value?' (filtered)':''}</span><strong>${fmt(total([...batches.values()].flat()))}</strong></div></section>`).join('');
+}
 function render(){
  const entries=db.entries;
  document.getElementById('entryCount').textContent=entries.length;
@@ -98,8 +111,8 @@ function render(){
  const q=document.getElementById('search').value.trim().toLowerCase(), bf=document.getElementById('batchFilter').value;
  let filtered=entries.filter(e=>e.item.toLowerCase().includes(q)&&(!bf||e.batch===bf));
  const sort=document.getElementById('sort').value;
- filtered.sort((a,b)=>sort==='item'?a.item.localeCompare(b.item):sort==='amountDesc'?b.amount-a.amount:sort==='amountAsc'?a.amount-b.amount:sort==='recent'?b.created-a.created:a.batch.localeCompare(b.batch)||a.item.localeCompare(b.item));
- document.getElementById('inventoryRows').innerHTML=filtered.length?filtered.map(e=>`<tr><td class="itemname">${esc(e.item)}</td><td>${esc(e.batch)}</td><td>${esc(e.package)}</td><td class="num amount">${Number(e.amount).toLocaleString()}</td><td class="num"><div class="rowactions"><button class="secondary small" data-edit="${e.id}">Edit</button><button class="danger small" data-delete="${e.id}">×</button></div></td></tr>`).join(''):`<tr><td colspan="5"><div class="empty">${entries.length?'No matching packages.':'No stock yet. Add your first package.'}</div></td></tr>`;
+ filtered.sort((a,b)=>sort==='item'?a.item.localeCompare(b.item)||a.batch.localeCompare(b.batch):sort==='amountDesc'?b.amount-a.amount:sort==='amountAsc'?a.amount-b.amount:sort==='recent'?b.created-a.created:a.batch.localeCompare(b.batch)||a.item.localeCompare(b.item));
+ document.getElementById('inventoryRows').innerHTML=groupedInventory(filtered,entries.length);
  document.getElementById('filteredTotal').textContent=total(filtered).toLocaleString();
  document.getElementById('resultCount').textContent=`${filtered.length} package ${filtered.length===1?'entry':'entries'}`;
  const batches=[...new Set(db.batches.concat(entries.map(e=>e.batch)))].sort();
