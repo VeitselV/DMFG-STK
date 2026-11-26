@@ -1,4 +1,4 @@
-const CACHE="stock-manager-cache-v2";
+const CACHE="stock-manager-cache-v2.1";
 const FILES=["./","./index.html","./manifest.webmanifest"];
 self.addEventListener("install",e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(FILES);await Promise.allSettled(["./icons/icon-192.png","./icons/icon-512.png"].map(f=>c.add(f)));await self.skipWaiting();})()));
 self.addEventListener("activate",e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith("stock-manager-cache-")&&k!==CACHE)await caches.delete(k);await self.clients.claim();})()));
