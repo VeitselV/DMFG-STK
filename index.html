@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Stock Manager</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#f3f5f8;--panel:#fff;--ink:#182230;--muted:#718096;--line:#e6eaf0;--accent:#2563eb;--green:#12805c;--red:#c24141;--shadow:0 8px 28px rgba(23,35,55,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:11px;padding:11px 14px;font-weight:650;background:var(--accent);color:white}
+button.secondary{background:#eef2f7;color:#263449}button.danger{background:#fff0f0;color:var(--red)}button.small{padding:7px 10px;font-size:13px}
+header{background:#111827;color:white;padding:18px max(18px,calc((100% - 1080px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-weight:800;font-size:19px;letter-spacing:.2px}.brand span{color:#93c5fd}.sub{font-size:12px;color:#aab5c5}
+main{max-width:1080px;margin:22px auto;padding:0 16px 50px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.stat{padding:16px}.stat small{color:var(--muted);display:block}.stat strong{display:block;font-size:25px;margin-top:5px}
+.panel{padding:17px;margin-bottom:16px}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}
+h2{font-size:17px;margin:0}h3{font-size:14px;margin:0 0 9px}
+.toolbar{display:grid;grid-template-columns:minmax(160px,1fr) 180px 160px;gap:9px}
+input,select{width:100%;border:1px solid #dbe1e9;background:white;border-radius:11px;padding:11px 12px;color:var(--ink);outline:none}
+input:focus,select:focus{border-color:#7aa7f8;box-shadow:0 0 0 3px #dbeafe}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:580px}th{text-align:left;color:var(--muted);font-size:12px;font-weight:700;padding:11px 10px;border-bottom:1px solid var(--line)}td{padding:13px 10px;border-bottom:1px solid var(--line)}tbody tr:last-child td{border-bottom:0}.num{text-align:right;font-variant-numeric:tabular-nums}.itemname{font-weight:700}.muted{color:var(--muted);font-size:12px}.amount{font-weight:750}.rowactions{display:flex;gap:6px;justify-content:flex-end}
+.totalbar{display:flex;justify-content:space-between;align-items:center;padding:14px 3px 0;margin-top:4px;border-top:1px solid var(--line);font-weight:750}.totalbar strong{font-size:21px;color:var(--green)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}.empty{text-align:center;padding:35px 12px;color:var(--muted)}
+dialog{border:0;border-radius:18px;padding:0;width:min(500px,calc(100% - 24px));box-shadow:0 25px 80px #0f172a55}dialog::backdrop{background:#0b1220a6}
+.modal{padding:20px}.modalhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.modalhead h2{font-size:19px}.x{background:#eef2f7;color:#334155;padding:6px 10px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:12px;color:var(--muted);font-weight:700}.formfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.tabs{display:flex;gap:7px;margin-bottom:15px;overflow:auto}.tab{background:#e8edf4;color:#435168;white-space:nowrap}.tab.active{background:#172338;color:white}
+.historylist{display:flex;flex-direction:column}.historyrow{padding:12px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}.historyrow:last-child{border:0}.positive{color:var(--green);font-weight:700}.negative{color:var(--red);font-weight:700}
+.note{background:#eff6ff;border:1px solid #dbeafe;color:#23456e;padding:12px;border-radius:12px;font-size:13px;margin-bottom:15px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:10px}
+@media(max-width:650px){main{margin:14px auto}.stats{gap:8px}.stat{padding:12px}.stat strong{font-size:20px}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.panel{padding:13px}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}header{padding:15px 16px}.hide-mobile{display:none}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">STOCK <span>MANAGER</span></div><div class="sub">Offline inventory tracker</div></div><div class="actions"><button class="secondary small" id="exportBtn">Export</button><button class="secondary small" id="backupBtn">Backup</button></div></header>
+<main>
+<div class="note" id="offlineNote">Your stock is saved on this device. No internet connection is needed for day-to-day use. Use <b>Backup</b> regularly to protect your data.</div>
+<section class="stats">
+ <div class="stat"><small>Package entries</small><strong id="entryCount">0</strong></div>
+ <div class="stat"><small>Unique items</small><strong id="itemCount">0</strong></div>
+ <div class="stat"><small>Total stock</small><strong id="grandTotal">0</strong></div>
+</section>
+<div class="tabs"><button class="tab active" data-tab="inventory">Inventory</button><button class="tab" data-tab="history">History</button><button class="tab" data-tab="manage">Manage lists</button></div>
+<section id="inventoryView" class="panel">
+ <div class="panelhead"><h2>Inventory</h2><button id="addBtn">＋ Add package</button></div>
+ <div class="toolbar">
+  <input id="search" placeholder="Search Item..." autocomplete="off">
+  <select id="sort"><option value="batch">Sort: Batch A–Z</option><option value="item">Sort: Item A–Z</option><option value="amountDesc">Sort: Amount high–low</option><option value="amountAsc">Sort: Amount low–high</option><option value="recent">Sort: Recently added</option></select>
+  <select id="batchFilter"><option value="">All batches</option></select>
+ </div>
+ <div class="tablewrap" style="margin-top:12px">
+ <table><thead><tr><th>Item</th><th>Batch</th><th>Package</th><th class="num">Amount</th><th class="num"> </th></tr></thead><tbody id="inventoryRows"></tbody></table>
+ </div>
+ <div class="totalbar"><span>Filtered total</span><strong id="filteredTotal">0</strong></div>
+ <div class="muted" id="resultCount" style="text-align:right;margin-top:4px"></div>
+</section>
+<section id="historyView" class="panel" hidden><div class="panelhead"><h2>Change history</h2><button class="secondary small" id="clearHistoryBtn">Clear history</button></div><div id="historyRows" class="historylist"></div></section>
+<section id="manageView" class="panel" hidden>
+ <div class="panelhead"><h2>Manage lists</h2></div>
+ <div class="formgrid">
+  <div><h3>Items</h3><div class="field"><input id="newItem" placeholder="New item name"></div><button id="addItemBtn" style="margin-top:8px">＋ Add item</button><div id="itemsList" style="margin-top:12px"></div></div>
+  <div><h3>Batches</h3><div class="field"><input id="newBatch" placeholder="New batch name"></div><button id="addBatchBtn" style="margin-top:8px">＋ Add batch</button><div id="batchesList" style="margin-top:12px"></div></div>
+  <div class="field full"><h3>Package types</h3><div class="actions"><input id="newPackage" placeholder="e.g. 85 pcs" style="max-width:260px"><button id="addPackageBtn">＋ Add package type</button></div><div id="packagesList" style="margin-top:8px"></div></div>
+ </div>
+</section>
+<footer>Stock Manager · Data stays in this browser on this device</footer>
+</main>
+<dialog id="entryDialog"><form id="entryForm" class="modal">
+ <div class="modalhead"><h2 id="entryTitle">Add package</h2><button type="button" class="x" data-close="entryDialog">✕</button></div>
+ <div class="formgrid">
+  <div class="field full"><label>ITEM</label><input id="fItem" list="itemOptions" required placeholder="Choose or type an item"><datalist id="itemOptions"></datalist></div>
+  <div class="field"><label>BATCH</label><input id="fBatch" list="batchOptions" required placeholder="Choose or type a batch"><datalist id="batchOptions"></datalist></div>
+  <div class="field"><label>PACKAGE TYPE</label><input id="fPackage" list="packageOptions" required placeholder="e.g. 85 pcs"><datalist id="packageOptions"></datalist></div>
+  <div class="field full"><label>AMOUNT</label><input id="fAmount" type="number" min="0" step="1" required inputmode="numeric" placeholder="Enter current quantity"></div>
+ </div>
+ <div class="formfoot"><button type="button" class="secondary" data-close="entryDialog">Cancel</button><button type="submit">Save package</button></div>
+</form></dialog>
+<dialog id="backupDialog"><div class="modal"><div class="modalhead"><h2>Backup & restore</h2><button class="x" data-close="backupDialog">✕</button></div><p class="muted">Download a full backup file containing inventory, lists and history. Keep it somewhere safe.</p><div class="actions"><button id="downloadBackup">Download backup</button><label class="secondary" style="padding:11px 14px;border-radius:11px;font-weight:650;cursor:pointer">Restore backup<input id="restoreFile" type="file" accept="application/json" hidden></label></div></div></dialog>
+<script>
+const KEY='stock-manager-v1';
+const blank=()=>({entries:[],items:[],batches:[],packages:[],history:[]});
+let db=load(), editingId=null;
+function load(){try{return {...blank(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return blank()}}
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function record(action,e,oldAmount=null){db.history.unshift({id:uid(),date:new Date().toISOString(),action,item:e.item,batch:e.batch,package:e.package,amount:e.amount,oldAmount});}
+function total(arr){return arr.reduce((n,e)=>n+(Number(e.amount)||0),0)}
+function render(){
+ const entries=db.entries;
+ document.getElementById('entryCount').textContent=entries.length;
+ document.getElementById('itemCount').textContent=new Set(entries.map(e=>e.item.toLowerCase())).size;
+ document.getElementById('grandTotal').textContent=total(entries).toLocaleString();
+ const q=document.getElementById('search').value.trim().toLowerCase(), bf=document.getElementById('batchFilter').value;
+ let filtered=entries.filter(e=>e.item.toLowerCase().includes(q)&&(!bf||e.batch===bf));
+ const sort=document.getElementById('sort').value;
+ filtered.sort((a,b)=>sort==='item'?a.item.localeCompare(b.item):sort==='amountDesc'?b.amount-a.amount:sort==='amountAsc'?a.amount-b.amount:sort==='recent'?b.created-a.created:a.batch.localeCompare(b.batch)||a.item.localeCompare(b.item));
+ document.getElementById('inventoryRows').innerHTML=filtered.length?filtered.map(e=>`<tr><td class="itemname">${esc(e.item)}</td><td>${esc(e.batch)}</td><td>${esc(e.package)}</td><td class="num amount">${Number(e.amount).toLocaleString()}</td><td class="num"><div class="rowactions"><button class="secondary small" data-edit="${e.id}">Edit</button><button class="danger small" data-delete="${e.id}">×</button></div></td></tr>`).join(''):`<tr><td colspan="5"><div class="empty">${entries.length?'No matching packages.':'No stock yet. Add your first package.'}</div></td></tr>`;
+ document.getElementById('filteredTotal').textContent=total(filtered).toLocaleString();
+ document.getElementById('resultCount').textContent=`${filtered.length} package ${filtered.length===1?'entry':'entries'}`;
+ const batches=[...new Set(db.batches.concat(entries.map(e=>e.batch)))].sort();
+ const sel=document.getElementById('batchFilter'),prev=sel.value;sel.innerHTML='<option value="">All batches</option>'+batches.map(b=>`<option>${esc(b)}</option>`).join('');sel.value=batches.includes(prev)?prev:'';
+ fillLists();
+ document.getElementById('historyRows').innerHTML=db.history.length?db.history.slice(0,300).map(h=>`<div class="historyrow"><div><b>${esc(h.item)}</b> <span class="muted">· ${esc(h.batch)} · ${esc(h.package)}</span><div class="muted">${new Date(h.date).toLocaleString()} · ${esc(h.action)}</div></div><div class="${h.action==='Added'?'positive':h.action==='Deleted'?'negative':''}">${h.oldAmount!==null?`${h.oldAmount} → ${h.amount}`:h.action==='Deleted'?`Removed (${h.amount})`:`${h.amount} pcs`}</div></div>`).join(''):'<div class="empty">No changes recorded yet.</div>';
+}
+function fillLists(){
+ const set=(id,arr)=>document.getElementById(id).innerHTML=[...new Set(arr)].sort().map(v=>`<option value="${esc(v)}">`).join('');
+ set('itemOptions',db.items.concat(db.entries.map(e=>e.item)));set('batchOptions',db.batches.concat(db.entries.map(e=>e.batch)));set('packageOptions',db.packages.concat(db.entries.map(e=>e.package)));
+ const list=(id,arr,type)=>document.getElementById(id).innerHTML=arr.length?arr.map(v=>`<div class="historyrow"><span>${esc(v)}</span><button class="danger small" data-listdelete="${type}" data-value="${esc(v)}">Remove</button></div>`).join(''):'<div class="muted">No values yet</div>';
+ list('itemsList',db.items,'items');list('batchesList',db.batches,'batches');list('packagesList',db.packages,'packages');
+}
+function openEntry(id=null){editingId=id;const e=db.entries.find(x=>x.id===id);document.getElementById('entryTitle').textContent=e?'Edit package':'Add package';['fItem','fBatch','fPackage','fAmount'].forEach((k,i)=>document.getElementById(k).value=e?[e.item,e.batch,e.package,e.amount][i]:'');document.getElementById('entryDialog').showModal()}
+document.getElementById('addBtn').onclick=()=>openEntry();
+document.getElementById('entryForm').onsubmit=ev=>{ev.preventDefault();const item=document.getElementById('fItem').value.trim(),batch=document.getElementById('fBatch').value.trim(),pkg=document.getElementById('fPackage').value.trim(),amount=Number(document.getElementById('fAmount').value);if(!item||!batch||!pkg||!Number.isFinite(amount)||amount<0)return alert('Please complete all fields with a valid amount.');
+ [ ['items',item],['batches',batch],['packages',pkg] ].forEach(([k,v])=>{if(!db[k].includes(v))db[k].push(v)});
+ let e=db.entries.find(x=>x.id===editingId);
+ if(e){const old=e.amount,prev={...e};Object.assign(e,{item,batch,package:pkg,amount,updated:Date.now()});record(old===amount?'Updated details':'Adjusted amount',e,old)}
+ else{e={id:uid(),item,batch,package:pkg,amount,created:Date.now()};db.entries.push(e);record('Added',e)}
+ document.getElementById('entryDialog').close();save();
+};
+document.getElementById('inventoryRows').onclick=ev=>{const edit=ev.target.closest('[data-edit]'),del=ev.target.closest('[data-delete]');if(edit)openEntry(edit.dataset.edit);if(del){const e=db.entries.find(x=>x.id===del.dataset.delete);if(e&&confirm(`Delete this ${e.item} / ${e.batch} package entry?`)){record('Deleted',e);db.entries=db.entries.filter(x=>x.id!==e.id);save()}}};
+['search','sort','batchFilter'].forEach(id=>document.getElementById(id).addEventListener(id==='search'?'input':'change',render));
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));['inventory','history','manage'].forEach(t=>document.getElementById(t+'View').hidden=t!==b.dataset.tab)});
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());
+function addList(k,id){const input=document.getElementById(id),v=input.value.trim();if(v&&!db[k].some(x=>x.toLowerCase()===v.toLowerCase())){db[k].push(v);input.value='';save()}else if(v)alert('That value already exists.')}
+document.getElementById('addItemBtn').onclick=()=>addList('items','newItem');document.getElementById('addBatchBtn').onclick=()=>addList('batches','newBatch');document.getElementById('addPackageBtn').onclick=()=>addList('packages','newPackage');
+document.getElementById('manageView').onclick=ev=>{const b=ev.target.closest('[data-listdelete]');if(!b)return;const k=b.dataset.listdelete,v=b.dataset.value;const field={items:'item',batches:'batch',packages:'package'}[k];if(db.entries.some(e=>e[field]===v))return alert('This value is used by a stock entry. Edit or delete those entries first.');if(confirm(`Remove ${v} from the list?`)){db[k]=db[k].filter(x=>x!==v);save()}};
+document.getElementById('clearHistoryBtn').onclick=()=>{if(confirm('Clear the change history? Inventory will not be affected.')){db.history=[];save()}};
+document.getElementById('exportBtn').onclick=()=>{const rows=[['Item','Batch','Package','Amount'],...db.entries.map(e=>[e.item,e.batch,e.package,e.amount])];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');download(new Blob([csv],{type:'text/csv'}),'stock-inventory.csv')};
+document.getElementById('backupBtn').onclick=()=>document.getElementById('backupDialog').showModal();
+document.getElementById('downloadBackup').onclick=()=>download(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),'stock-manager-backup.json');
+document.getElementById('restoreFile').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data.entries)||!Array.isArray(data.history))throw Error();if(confirm('Replace the current local data with this backup?')){db={...blank(),...data};save();document.getElementById('backupDialog').close();alert('Backup restored.')}}catch(e){alert('This backup file is not valid.')}ev.target.value=''};
+function download(blob,name){const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+render();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body></html>
